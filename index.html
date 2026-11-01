@@ -1,6 +1,6 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>티어표</title>
-<link rel="stylesheet" href="style.css"></head><body>
+<link rel="stylesheet" href="style.css"><style>dialog{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:260px}dialog::backdrop{background:rgba(0,0,0,.45)}dialog input{width:100%;margin-bottom:10px}dialog p{margin:0 0 10px}#reset,#resetAll{color:#c0392b}</style></head><body>
 <header><h1>티어표</h1><button class="tab" id="mSearch">검색</button><button class="tab" id="mEdit">티어표 편집</button></header>
 <main>
 <section id="vSearch" class="panel" style="display:block">
@@ -10,18 +10,23 @@
 <section id="vEdit" style="display:none">
  <p class="hint">편집 내용은 <b>이 브라우저에만</b> 저장돼요. 다른 사람에게 보이게 하려면 아래 "data.json 내보내기" 후 GitHub에 올려 주세요.</p>
  <div class="panel"><input type="text" id="name" placeholder="캐릭터 이름"><input type="file" id="file" accept="image/*" multiple><button id="add">캐릭터 추가</button></div>
- <div class="panel"><button id="addTier">티어 추가</button><button id="export">data.json 내보내기</button><button id="reload">배포된 데이터 불러오기</button><label class="btn">JSON 불러오기<input type="file" id="import" accept=".json" hidden></label></div>
+ <div class="panel"><button id="addTier">티어 추가</button><button id="export">data.json 내보내기</button><button id="reload">배포된 데이터 불러오기</button><label class="btn">JSON 불러오기<input type="file" id="import" accept=".json" hidden></label><button id="setpw">비밀번호 설정</button><button id="reset">이 표 초기화</button><button id="resetAll">전체 표 초기화</button><span class="hint" id="pwst"></span></div>
 </section>
 <div class="tabs" id="tabs"></div>
 <div id="board"></div>
 </main>
+<dialog id="dlg"><form method="dialog"><p id="dmsg"></p><input type="password" id="dpw" autocomplete="off"><div class="panel" style="margin:0"><button value="ok">확인</button><button value="cancel">취소</button></div></form></dialog>
 <script src="common.js"></script>
 <script>
-let D=emptyData(),cur='sprint',mode='search',drag=null;
+let D=emptyData(),cur='sprint',mode='search',drag=null,pq='',ay=null,timer=null;
 const $=s=>document.querySelector(s),B=()=>D.boards[cur],save=()=>saveLocal(D);
 async function pub(){try{const r=await fetch('data.json',{cache:'no-store'});if(r.ok){const d=await r.json();if(d&&d.chars&&d.boards&&Object.keys(d.boards).length)return d}}catch(e){}return null}
 async function init(){D=loadLocal()||await pub()||emptyData();render()}
 function setMode(m){mode=m;render()}
+function applyPoolFilter(){const q=pq.trim().toLowerCase();document.querySelectorAll('[data-z=pool] .chip').forEach(c=>{c.style.display=c.title.toLowerCase().includes(q)?'':'none'})}
+function startScroll(){stopScroll();timer=setInterval(()=>{if(ay==null)return;const m=110,h=innerHeight;if(ay<m)scrollBy(0,-Math.ceil((m-ay)/4));else if(ay>h-m)scrollBy(0,Math.ceil((ay-(h-m))/4))},16)}
+function stopScroll(){clearInterval(timer);timer=null;ay=null}
+document.addEventListener('input',e=>{if(e.target.id=='pq'){pq=e.target.value;applyPoolFilter()}});
 $('#mSearch').onclick=()=>setMode('search');$('#mEdit').onclick=()=>setMode('edit');
 function render(){
   const ed=mode=='edit';
@@ -34,7 +39,8 @@ function render(){
    :`<div class="cards">${hits.map(c=>`<div class="card"><img src="${c.img}" alt=""><div><h3>${esc(c.name)}</h3><div class="badges">${BOARDS.map(([k,l])=>{const t=tierOf(D,k,c.id);return `<div class="badge"><span>${l}</span><b style="background:${t.color}">${esc(t.name)}</b></div>`}).join('')}</div></div></div>`).join('')}</div>`;
   const b=B(),ch=i=>chipHTML(D,i,ed,(!ed&&q)?ids.has(i):undefined);
   $('#board').innerHTML=b.tiers.map(t=>`<div class="row"><div class="label" style="background:${t.color}">${ed?`<input type="text" class="tn" data-t="${t.id}" value="${esc(t.name)}"><div><input type="color" class="tc" data-t="${t.id}" value="${t.color}"> <button data-tdel="${t.id}" title="티어 삭제">✕</button></div>`:esc(t.name)}</div><div class="zone" data-z="${t.id}">${t.items.map(ch).join('')}</div></div>`).join('')
-   +((ed||b.pool.length)?`<h3>미배치 (${b.pool.length})</h3><div class="row"><div class="zone" data-z="pool">${b.pool.map(ch).join('')}</div></div>`:'');
+   +((ed||b.pool.length)?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 8px"><h3 style="margin:0">미배치 (${b.pool.length})</h3>${ed?`<input type="search" id="pq" placeholder="미배치 캐릭터 검색" value="${esc(pq)}">`:''}</div><div class="row"><div class="zone" data-z="pool">${b.pool.map(ch).join('')}</div></div>`:'');
+  applyPoolFilter();
 }
 $('#q').oninput=render;
 function square(file,size=128){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const s=Math.min(im.width,im.height),c=document.createElement('canvas');c.width=c.height=size;c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,size,size);ok(c.toDataURL('image/jpeg',.82))};im.onerror=no;im.src=URL.createObjectURL(file)})}
@@ -62,17 +68,43 @@ document.addEventListener('change',e=>{
   if(e.target.classList.contains('tc'))t.color=e.target.value;
   save();render();
 });
-document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('.chip');if(c&&mode=='edit'){drag=c.dataset.id;e.dataTransfer.setData('text/plain',drag)}});
-document.addEventListener('dragover',e=>{const z=e.target.closest&&e.target.closest('.zone');document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));if(z&&drag){e.preventDefault();z.classList.add('over')}});
+document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('.chip');if(c&&mode=='edit'){drag=c.dataset.id;e.dataTransfer.setData('text/plain',drag);startScroll()}});
+document.addEventListener('dragover',e=>{ay=e.clientY;const z=e.target.closest&&e.target.closest('.zone');document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));if(z&&drag){e.preventDefault();z.classList.add('over')}});
 document.addEventListener('drop',e=>{
   const z=e.target.closest&&e.target.closest('.zone');if(!z||!drag)return;e.preventDefault();
-  const b=B(),id=drag;drag=null;
+  const b=B(),id=drag;drag=null;stopScroll();
   const chips=[...z.querySelectorAll('.chip')].filter(c=>c.dataset.id!=id);
   const idx=chips.findIndex(c=>{const r=c.getBoundingClientRect();return e.clientY<r.top||(e.clientY<r.bottom&&e.clientX<r.left+r.width/2)});
   b.pool=b.pool.filter(i=>i!=id);b.tiers.forEach(t=>t.items=t.items.filter(i=>i!=id));
   const list=z.dataset.z=='pool'?b.pool:b.tiers.find(t=>t.id==z.dataset.z).items;
   list.splice(idx<0?list.length:idx,0,id);save();render();
 });
-document.addEventListener('dragend',()=>{drag=null;document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'))});
+document.addEventListener('dragend',()=>{drag=null;stopScroll();document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'))});
+const PWK='tiermaker-pw';
+async function hash(x){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('tier:'+x));return[...new Uint8Array(b)].map(n=>n.toString(16).padStart(2,'0')).join('')}catch(e){let h=0;for(const c of 'tier:'+x)h=(h*31+c.charCodeAt(0))|0;return'f'+h}}
+const getPw=()=>{try{return localStorage.getItem(PWK)}catch(e){return null}};
+function askPw(msg){return new Promise(res=>{const d=$('#dlg');$('#dmsg').textContent=msg;$('#dpw').value='';d.returnValue='';d.onclose=()=>res(d.returnValue=='ok'?$('#dpw').value:null);d.showModal();$('#dpw').focus()})}
+async function checkPw(){const h=getPw();if(!h)return true;const v=await askPw('비밀번호를 입력하세요.');if(v===null)return false;if(await hash(v)===h)return true;alert('비밀번호가 틀렸어요.');return false}
+function pwStatus(){$('#pwst').textContent='비밀번호: '+(getPw()?'설정됨':'없음')}
+$('#setpw').onclick=async()=>{
+  if(!(await checkPw()))return;
+  const v=await askPw(getPw()?'새 비밀번호를 입력하세요. 비워 두고 확인하면 비밀번호가 해제돼요.':'새 비밀번호를 입력하세요.');
+  if(v===null)return;
+  if(v===''){if(getPw()){localStorage.removeItem(PWK);alert('비밀번호를 해제했어요.')}pwStatus();return}
+  const v2=await askPw('확인을 위해 한 번 더 입력하세요.');
+  if(v2===null)return;
+  if(v2!==v)return alert('두 비밀번호가 달라요.');
+  try{localStorage.setItem(PWK,await hash(v))}catch(e){return alert('저장하지 못했어요.')}
+  alert('비밀번호를 설정했어요.');pwStatus();
+};
+function backToPool(k){const b=D.boards[k];b.tiers.forEach(t=>{b.pool.push(...t.items);t.items=[]})}
+async function doReset(keys,msg){
+  if(!(await checkPw()))return;
+  if(!confirm(msg))return;
+  keys.forEach(backToPool);save();render();
+}
+$('#reset').onclick=()=>doReset([cur],BOARDS.find(b=>b[0]==cur)[1]+' 티어표의 모든 캐릭터를 미배치로 옮겨요. 캐릭터와 티어 구성은 그대로예요. 계속할까요?');
+$('#resetAll').onclick=()=>doReset(BOARDS.map(b=>b[0]),'5개 거리 티어표의 모든 캐릭터를 미배치로 옮겨요. 캐릭터와 티어 구성은 그대로예요. 계속할까요?');
+pwStatus();
 init();
 </script></body></html>
