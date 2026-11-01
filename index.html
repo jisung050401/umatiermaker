@@ -39,7 +39,7 @@ function render(){
    :`<div class="cards">${hits.map(c=>`<div class="card"><img src="${c.img}" alt=""><div><h3>${esc(c.name)}</h3><div class="badges">${BOARDS.map(([k,l])=>{const t=tierOf(D,k,c.id);return `<div class="badge"><span>${l}</span><b style="background:${t.color}">${esc(t.name)}</b></div>`}).join('')}</div></div></div>`).join('')}</div>`;
   const b=B(),ch=i=>chipHTML(D,i,ed,(!ed&&q)?ids.has(i):undefined);
   $('#board').innerHTML=b.tiers.map(t=>`<div class="row"><div class="label" style="background:${t.color}">${ed?`<input type="text" class="tn" data-t="${t.id}" value="${esc(t.name)}"><div><input type="color" class="tc" data-t="${t.id}" value="${t.color}"> <button data-tdel="${t.id}" title="티어 삭제">✕</button></div>`:esc(t.name)}</div><div class="zone" data-z="${t.id}">${t.items.map(ch).join('')}</div></div>`).join('')
-   +((ed||b.pool.length)?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 8px"><h3 style="margin:0">미배치 (${b.pool.length})</h3>${ed?`<input type="search" id="pq" placeholder="미배치 캐릭터 검색" value="${esc(pq)}"><button id="psort">가나다순 정렬</button>`:''}</div><div class="row"><div class="zone" data-z="pool">${b.pool.map(ch).join('')}</div></div>`:'');
+   +((ed||b.pool.length)?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 8px"><h3 style="margin:0">미배치 (${b.pool.length})</h3>${ed?`<input type="search" id="pq" placeholder="미배치 캐릭터 검색" value="${esc(pq)}"><button id="psort">가나다순 정렬</button><select id="mvsel">${b.tiers.map(t=>`<option value="${t.id}" ${t.id==mvT?'selected':''}>${esc(t.name)}</option>`).join('')}</select><button id="pmove">티어로 전체 이동</button>`:''}</div><div class="row"><div class="zone" data-z="pool">${b.pool.map(ch).join('')}</div></div>`:'');
   applyPoolFilter();
 }
 $('#q').oninput=render;
@@ -81,6 +81,17 @@ document.addEventListener('drop',e=>{
 });
 document.addEventListener('dragend',()=>{drag=null;stopScroll();document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'))});
 document.addEventListener('click',e=>{if(e.target.id!='psort')return;const nm=i=>(charOf(D,i)||{name:''}).name;B().pool.sort((a,c)=>nm(a).localeCompare(nm(c),'ko'));save();render()});
+let mvT=null;
+document.addEventListener('change',e=>{if(e.target.id=='mvsel')mvT=e.target.value});
+document.addEventListener('click',e=>{
+  if(e.target.id!='pmove')return;
+  const b=B(),t=b.tiers.find(x=>x.id==$('#mvsel').value);if(!t)return alert('티어가 없어요. 먼저 티어를 추가해 주세요.');
+  const q=pq.trim().toLowerCase(),nm=i=>(charOf(D,i)||{name:''}).name.toLowerCase();
+  const ids=new Set(b.pool.filter(i=>!q||nm(i).includes(q)));
+  if(!ids.size)return alert('이동할 캐릭터가 없어요.');
+  if(!confirm(ids.size+'명을 \''+t.name+'\' 티어로 옮길까요?'+(q?'\n(검색 결과에 보이는 캐릭터만 이동해요.)':'')))return;
+  t.items.push(...b.pool.filter(i=>ids.has(i)));b.pool=b.pool.filter(i=>!ids.has(i));save();render();
+});
 const PWK='tiermaker-pw';
 async function hash(x){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('tier:'+x));return[...new Uint8Array(b)].map(n=>n.toString(16).padStart(2,'0')).join('')}catch(e){let h=0;for(const c of 'tier:'+x)h=(h*31+c.charCodeAt(0))|0;return'f'+h}}
 const getPw=()=>{try{return localStorage.getItem(PWK)}catch(e){return null}};
