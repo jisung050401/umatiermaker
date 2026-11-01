@@ -1,0 +1,38 @@
+:root{--bg:#f3f1ec;--card:#fffdf8;--line:#d8d3c6;--fg:#23262b;--mute:#76736a;--ac:#1f6f5c}
+@media(prefers-color-scheme:dark){:root{--bg:#171a1c;--card:#202427;--line:#363c40;--fg:#e9e7e0;--mute:#9a978c;--ac:#5fc2a5}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Pretendard,"Noto Sans KR","Malgun Gothic",system-ui,sans-serif;line-height:1.5}
+header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
+header h1{font-size:19px;margin:0 auto 0 0}
+main{max-width:1100px;margin:0 auto;padding:20px}
+button,.btn,input[type=text],input[type=search]{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 12px}
+button,.btn{cursor:pointer;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--ac)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.tab.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.panel{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.row{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:6px;background:var(--card)}
+.label{width:92px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;color:#111;font-weight:700;text-align:center;word-break:break-all}
+.label input[type=text]{width:76px;text-align:center;padding:3px;font-weight:700;color:#111;background:rgba(255,255,255,.55)}
+.label input[type=color]{width:30px;height:24px;padding:0;border:0;background:none}
+.label button{padding:1px 6px;font-size:12px}
+.zone{flex:1;display:flex;flex-wrap:wrap;gap:4px;padding:6px;min-height:84px;align-content:flex-start}
+.zone.over{background:color-mix(in srgb,var(--ac) 18%,transparent)}
+.chip{width:72px;height:72px;position:relative;border-radius:6px;overflow:hidden;border:2px solid transparent}
+.zone .chip[draggable=true]{cursor:grab}
+.chip img{width:100%;height:100%;object-fit:cover;display:block}
+.chip small{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.62);color:#fff;font-size:10px;text-align:center;white-space:nowrap;overflow:hidden}
+.chip .x{position:absolute;top:0;right:0;display:none;padding:0 5px;font-size:11px;border-radius:0 0 0 6px}
+.chip:hover .x{display:block}
+.chip.hit{border-color:#ffc400;box-shadow:0 0 0 2px #ffc400}
+.chip.dim{opacity:.35}
+.hint{color:var(--mute);font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-bottom:24px}
+.card{display:flex;gap:12px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.card img{width:72px;height:72px;border-radius:6px;object-fit:cover}
+.card h3{margin:0 0 6px;font-size:16px}
+.badges{display:flex;flex-wrap:wrap;gap:4px}
+.badge{display:flex;border-radius:5px;overflow:hidden;font-size:12px;border:1px solid var(--line)}
+.badge span{padding:2px 6px;background:var(--bg)}
+.badge b{padding:2px 8px;color:#111;min-width:28px;text-align:center}

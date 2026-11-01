@@ -1,0 +1,78 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>티어표</title>
+<link rel="stylesheet" href="style.css"></head><body>
+<header><h1>티어표</h1><button class="tab" id="mSearch">검색</button><button class="tab" id="mEdit">티어표 편집</button></header>
+<main>
+<section id="vSearch" class="panel" style="display:block">
+ <input type="search" id="q" placeholder="캐릭터 이름 검색" style="width:100%;margin-bottom:12px">
+ <div id="result"></div>
+</section>
+<section id="vEdit" style="display:none">
+ <p class="hint">편집 내용은 <b>이 브라우저에만</b> 저장돼요. 다른 사람에게 보이게 하려면 아래 "data.json 내보내기" 후 GitHub에 올려 주세요.</p>
+ <div class="panel"><input type="text" id="name" placeholder="캐릭터 이름"><input type="file" id="file" accept="image/*" multiple><button id="add">캐릭터 추가</button></div>
+ <div class="panel"><button id="addTier">티어 추가</button><button id="export">data.json 내보내기</button><button id="reload">배포된 데이터 불러오기</button><label class="btn">JSON 불러오기<input type="file" id="import" accept=".json" hidden></label></div>
+</section>
+<div class="tabs" id="tabs"></div>
+<div id="board"></div>
+</main>
+<script src="common.js"></script>
+<script>
+let D=emptyData(),cur='sprint',mode='search',drag=null;
+const $=s=>document.querySelector(s),B=()=>D.boards[cur],save=()=>saveLocal(D);
+async function pub(){try{const r=await fetch('data.json',{cache:'no-store'});if(r.ok){const d=await r.json();if(d&&d.chars&&d.boards&&Object.keys(d.boards).length)return d}}catch(e){}return null}
+async function init(){D=loadLocal()||await pub()||emptyData();render()}
+function setMode(m){mode=m;render()}
+$('#mSearch').onclick=()=>setMode('search');$('#mEdit').onclick=()=>setMode('edit');
+function render(){
+  const ed=mode=='edit';
+  $('#mSearch').classList.toggle('on',!ed);$('#mEdit').classList.toggle('on',ed);
+  $('#vSearch').style.display=ed?'none':'block';$('#vEdit').style.display=ed?'block':'none';
+  $('#tabs').innerHTML=BOARDS.map(([k,l])=>`<button class="tab ${k==cur?'on':''}" data-tab="${k}">${l}</button>`).join('');
+  const q=$('#q').value.trim().toLowerCase(),hits=(!ed&&q)?D.chars.filter(c=>c.name.toLowerCase().includes(q)):[],ids=new Set(hits.map(c=>c.id));
+  if(!ed)$('#result').innerHTML=!q?`<p class="hint">캐릭터 이름을 입력하면 거리별 티어를 한눈에 볼 수 있어요.</p>`
+   :!hits.length?`<p class="hint">'${esc(q)}'에 해당하는 캐릭터가 없어요.</p>`
+   :`<div class="cards">${hits.map(c=>`<div class="card"><img src="${c.img}" alt=""><div><h3>${esc(c.name)}</h3><div class="badges">${BOARDS.map(([k,l])=>{const t=tierOf(D,k,c.id);return `<div class="badge"><span>${l}</span><b style="background:${t.color}">${esc(t.name)}</b></div>`}).join('')}</div></div></div>`).join('')}</div>`;
+  const b=B(),ch=i=>chipHTML(D,i,ed,(!ed&&q)?ids.has(i):undefined);
+  $('#board').innerHTML=b.tiers.map(t=>`<div class="row"><div class="label" style="background:${t.color}">${ed?`<input type="text" class="tn" data-t="${t.id}" value="${esc(t.name)}"><div><input type="color" class="tc" data-t="${t.id}" value="${t.color}"> <button data-tdel="${t.id}" title="티어 삭제">✕</button></div>`:esc(t.name)}</div><div class="zone" data-z="${t.id}">${t.items.map(ch).join('')}</div></div>`).join('')
+   +((ed||b.pool.length)?`<h3>미배치 (${b.pool.length})</h3><div class="row"><div class="zone" data-z="pool">${b.pool.map(ch).join('')}</div></div>`:'');
+}
+$('#q').oninput=render;
+function square(file,size=128){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const s=Math.min(im.width,im.height),c=document.createElement('canvas');c.width=c.height=size;c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,size,size);ok(c.toDataURL('image/jpeg',.82))};im.onerror=no;im.src=URL.createObjectURL(file)})}
+$('#add').onclick=async()=>{
+  const fs=[...$('#file').files];if(!fs.length)return alert('사진을 선택해 주세요.');
+  for(const f of fs){const name=(fs.length==1&&$('#name').value.trim())||f.name.replace(/\.[^.]+$/,''),id=uid();
+    D.chars.push({id,name,img:await square(f)});BOARDS.forEach(([k])=>D.boards[k].pool.push(id))}
+  $('#name').value='';$('#file').value='';save();render();
+};
+$('#addTier').onclick=()=>{B().tiers.push({id:uid(),name:'새 티어',color:COLORS[B().tiers.length%COLORS.length],items:[]});save();render()};
+$('#export').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));a.download='data.json';a.click()};
+$('#reload').onclick=async()=>{if(!confirm('이 브라우저의 편집 내용이 사라지고 배포된 데이터로 바뀌어요. 계속할까요?'))return;const d=await pub();if(!d)return alert('배포된 data.json이 비어 있거나 읽을 수 없어요.');D=d;save();render()};
+$('#import').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!d.chars||!d.boards)throw 0;D=d;save();render()}catch(x){alert('올바른 data.json이 아니에요.')}};
+document.addEventListener('click',e=>{
+  const d=e.target.dataset;
+  if(d.tab){cur=d.tab}
+  else if(d.tdel){const b=B(),i=b.tiers.findIndex(t=>t.id==d.tdel);if(!confirm('티어를 삭제할까요? 안의 캐릭터는 미배치로 이동해요.'))return;b.pool.push(...b.tiers[i].items);b.tiers.splice(i,1);save()}
+  else if(d.del){if(!confirm('이 캐릭터를 모든 거리표에서 삭제할까요?'))return;D.chars=D.chars.filter(c=>c.id!=d.del);BOARDS.forEach(([k])=>{const b=D.boards[k];b.pool=b.pool.filter(i=>i!=d.del);b.tiers.forEach(t=>t.items=t.items.filter(i=>i!=d.del))});save()}
+  else return;
+  render();
+});
+document.addEventListener('change',e=>{
+  const t=B().tiers.find(t=>t.id==e.target.dataset.t);if(!t)return;
+  if(e.target.classList.contains('tn'))t.name=e.target.value;
+  if(e.target.classList.contains('tc'))t.color=e.target.value;
+  save();render();
+});
+document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('.chip');if(c&&mode=='edit'){drag=c.dataset.id;e.dataTransfer.setData('text/plain',drag)}});
+document.addEventListener('dragover',e=>{const z=e.target.closest&&e.target.closest('.zone');document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));if(z&&drag){e.preventDefault();z.classList.add('over')}});
+document.addEventListener('drop',e=>{
+  const z=e.target.closest&&e.target.closest('.zone');if(!z||!drag)return;e.preventDefault();
+  const b=B(),id=drag;drag=null;
+  const chips=[...z.querySelectorAll('.chip')].filter(c=>c.dataset.id!=id);
+  const idx=chips.findIndex(c=>{const r=c.getBoundingClientRect();return e.clientY<r.top||(e.clientY<r.bottom&&e.clientX<r.left+r.width/2)});
+  b.pool=b.pool.filter(i=>i!=id);b.tiers.forEach(t=>t.items=t.items.filter(i=>i!=id));
+  const list=z.dataset.z=='pool'?b.pool:b.tiers.find(t=>t.id==z.dataset.z).items;
+  list.splice(idx<0?list.length:idx,0,id);save();render();
+});
+document.addEventListener('dragend',()=>{drag=null;document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'))});
+init();
+</script></body></html>
